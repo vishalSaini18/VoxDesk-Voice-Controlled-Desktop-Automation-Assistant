@@ -2,6 +2,7 @@ import pyautogui
 import time
 import pygetwindow as gw
 import webbrowser
+import pywhatkit
 
 # -------------------------------
 #  KEYWORD GROUPS
@@ -170,63 +171,92 @@ def activate_chrome():
 
     return False
 
+def chrome_is_active():
+    try:
+        active = gw.getActiveWindow()
+        return active and "chrome" in active.title.lower()
+    except:
+        return False
+
+
 def switch_to_youtube_tab():
-    """Switch Chrome to a YouTube tab using tab search."""
+
+    if not chrome_is_active():
+        return False
+
+    """Switch Chrome to a YouTube tab safely (no crashes)."""
     chrome_windows = gw.getWindowsWithTitle("Chrome")
     if not chrome_windows:
         return False
 
     win = chrome_windows[0]
-    win.activate()
+
+    # NEVER let activate crash
+    try:
+        if win.isMinimized:
+            win.restore()
+    except:
+        pass
+
     time.sleep(0.2)
 
-    # Open Chrome tab search
+    try:
+        win.activate()
+    except:
+        pass   # <- THIS was missing
+
+    time.sleep(0.3)
+
+    # Use keyboard navigation instead of forcing focus
     pyautogui.hotkey("ctrl", "shift", "a")
     time.sleep(0.5)
 
-    # Filter for YouTube tabs
     pyautogui.typewrite("youtube", interval=0.05)
     time.sleep(0.4)
 
     pyautogui.press("enter")
-    time.sleep(1)
+    time.sleep(0.8)
 
     return True
-
 
 def play_song_in_same_tab(song):
     """Search and play a song on YouTube in the same tab."""
 
     url = f"https://www.youtube.com/results?search_query={song.replace(' ', '+')}"
 
-    # STEP 1 — Make sure Chrome is active
+    # STEP 1 — Ensure Chrome exists
     if not activate_chrome():
-        # Chrome not open → open YouTube once
         webbrowser.open("https://www.youtube.com")
         time.sleep(3)
         activate_chrome()
 
     time.sleep(0.5)
 
-    # STEP 2 — Try switching to YouTube tab
-    youtube_open = switch_to_youtube_tab()
-
-    # STEP 3 — Load the new search URL in SAME tab
-    pyautogui.hotkey("ctrl", "l")   # focus URL bar
+    # STEP 2 — Switch to YouTube tab
+    switch_to_youtube_tab()
     time.sleep(0.3)
+
+    # STEP 3 — Check Chrome focus
+    try:
+        active = gw.getActiveWindow()
+        chrome_focused = active and "chrome" in active.title.lower()
+    except:
+        chrome_focused = False
+
+    if not chrome_focused:
+        webbrowser.open(url)
+        return
+
+    # STEP 4 — Open search in SAME tab
+    pyautogui.hotkey("ctrl", "l")
+    time.sleep(0.2)
     pyautogui.typewrite(url, interval=0.02)
     pyautogui.press("enter")
 
-    # STEP 4 — Wait for YouTube to load
-    time.sleep(2.8)
+    # STEP 5 — Wait for results
+    time.sleep(3)
 
-    # STEP 5 — Click the page to ensure it's focused
-    pyautogui.click(600, 350)   # click center of screen
-    time.sleep(0.3)
+    # STEP 6 — Click first video (UI based, same tab)
+    screen_w, screen_h = pyautogui.size()
+    pyautogui.click(screen_w // 2, int(screen_h * 0.42))
 
-    # STEP 6 — Move to first video result
-    pyautogui.press("tab")
-    time.sleep(0.2)
-
-    # STEP 7 — Play first video
-    pyautogui.press("enter")

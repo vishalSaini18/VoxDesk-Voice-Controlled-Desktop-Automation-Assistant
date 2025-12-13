@@ -4,6 +4,7 @@ import sys
 from datetime import datetime
 import re
 from speech_engine import speak
+from ai_fallback import ai_reply
 from youtube_controls import (
     PAUSE_KEYWORDS, PLAY_KEYWORDS, REWIND_KEYWORDS, FORWARD_KEYWORDS,
     VOLUME_UP_KEYWORDS, VOLUME_DOWN_KEYWORDS, NEXT_VIDEO_KEYWORDS,
@@ -42,11 +43,7 @@ def respond(command):
         speak(f"Searching for {query}")
         webbrowser.open(f"https://www.google.com/search?q={query}")
 
-    # Play Music on YouTube
-    # elif command.startswith("play "):
-    #     song = command.replace("play", "").replace("on youtube", "").strip()
-    #     speak(f"Playing {song} on YouTube")
-    #     pywhatkit.playonyt(song)
+    # Play song on YouTube
 
     elif command.startswith("play "):
         song = command.replace("play", "").replace("on youtube", "").strip()
@@ -118,6 +115,15 @@ def respond(command):
     elif "exit" in command or "quit" in command:
         speak("Goodbye!")
         sys.exit()
-
+        
     else:
-        speak("I'm not sure how to help with that.")
+        reply = ai_reply(command)
+
+        if reply:
+            print("AI:", reply)
+            speak(reply)
+        else:
+            print("AI: No response")
+            speak("I don't have an answer for that.")
+
+
