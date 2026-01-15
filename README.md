@@ -1,2 +1,2 @@
-# B.I.T.C.H.-Boot-Interactive-Task-Control-Hub-
-B.I.T.C.H. (Boot Interactive Task Control Hub) is a voice-controlled desktop assistant that lets you operate your PC using natural commands. It opens apps, performs system tasks, fetches information, and automates routines—turning your computer into a hands-free, conversational tool with a bold personality.
+# 🎙️ VoxDesk – Voice-Controlled Desktop Automation Assistant
+VoxDesk is a voice-controlled desktop automation assistant that allows users to operate their computer using natural language commands. It can launch applications, perform system operations, retrieve information, and automate repetitive workflows—transforming your PC into a hands-free, conversational productivity tool with a bold and interactive personality.
