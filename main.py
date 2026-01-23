@@ -3,11 +3,11 @@ from listener import listen
 from commands import respond
 import time
 
-speak("Bitch activated.")
+speak("VoxDesk activated.")
 
 WAKE_WORDS = [
-    "bitch activate", "hey bitch", "bitch", "fucking bitch",
-    "jarvis", "hey jarvis", "jorvis", "hey jorvis", "siri","hey siri", "kutte", "uth ja kutte"
+    "voxdesk activate","hey voxdesk",  
+    "jarvis", "hey jarvis", "jorvis", "hey jorvis", "siri","hey siri"
 ]
 
 ACTIVE_TIMEOUT = 600  # seconds
@@ -39,20 +39,21 @@ while True:
         if any(w in command for w in WAKE_WORDS):
             active = True
             last_active_time = time.time()
-            speak("Bitch Activated.")
+            speak("VoxDesk Activated.")
         continue
 
     # Reset timer on any valid command while active
     last_active_time = time.time()
 
     # Manual sleep
-    if command in ["sleep", "deactivate", "stop listening", "chup", "chup kar kutte", "chup kar be kutte", "chup karbe kutte"]:
+    if command in ["sleep", "deactivate", "stop listening"]:
         active = False
         speak("Deactivated.")
         continue
 
     # Execute command
     respond(command)
+
 
 
 
