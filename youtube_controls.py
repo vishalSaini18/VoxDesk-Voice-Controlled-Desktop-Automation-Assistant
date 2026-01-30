@@ -5,6 +5,12 @@ import webbrowser
 import pywhatkit
 import subprocess
 import os
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+from speech_engine import speak
 # -------------------------------
 #  KEYWORD GROUPS
 # -------------------------------
@@ -12,10 +18,10 @@ import os
 PLAY_SONG_PREFIX = "play"
 
 PAUSE_KEYWORDS = [
-    "pause", "pause it", "stop", "stop it", 
+    "pause", "pause it",  
     "pause the music", "pause song", "stop music", 
     "pause video", "stop the song", "hold on", 
-    "mute", "mute it", "shut up"
+    "mute", "mute it", "stop the video", "stop playing", "stop video"
 ]
 
 PLAY_KEYWORDS = [
@@ -161,26 +167,64 @@ def previous_video():
     time.sleep(0.2)
     restore_window(prev)
 
+# def activate_chrome():
+#     """Activate Chrome safely and maximize only if needed (no flicker)."""
+
+#     try:
+#         active = gw.getActiveWindow()
+#         if active and "chrome" in active.title.lower():
+#             # Chrome already active → just ensure maximized
+#             try:
+#                 if not active.isMaximized:
+#                     active.maximize()
+#             except:
+#                 pass
+#             return True
+#     except:
+#         pass
+
+#     for win in gw.getWindowsWithTitle("Chrome"):
+#         try:
+#             # Restore only if minimized
+#             if win.isMinimized:
+#                 win.restore()
+#                 time.sleep(0.2)
+
+#             win.activate()
+#             time.sleep(0.2)
+
+#             # Maximize ONLY if not already maximized
+#             try:
+#                 if not win.isMaximized:
+#                     win.maximize()
+#             except:
+#                 pass
+
+#             return True
+#         except:
+#             pass
+
+#     return False
+
+
+CHROME_PATH = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 def activate_chrome():
-    """Activate Chrome safely and maximize only if needed (no flicker)."""
+    """Activate Chrome safely. Open it if closed."""
 
+    # 1️⃣ If Chrome already active
     try:
         active = gw.getActiveWindow()
         if active and "chrome" in active.title.lower():
-            # Chrome already active → just ensure maximized
-            try:
-                if not active.isMaximized:
-                    active.maximize()
-            except:
-                pass
+            if not active.isMaximized:
+                active.maximize()
             return True
     except:
         pass
 
+    # 2️⃣ If Chrome running but not active
     for win in gw.getWindowsWithTitle("Chrome"):
         try:
-            # Restore only if minimized
             if win.isMinimized:
                 win.restore()
                 time.sleep(0.2)
@@ -188,16 +232,28 @@ def activate_chrome():
             win.activate()
             time.sleep(0.2)
 
-            # Maximize ONLY if not already maximized
-            try:
-                if not win.isMaximized:
-                    win.maximize()
-            except:
-                pass
+            if not win.isMaximized:
+                win.maximize()
 
             return True
         except:
             pass
+
+    # 3️⃣ Chrome not running → START IT
+    try:
+        subprocess.Popen(CHROME_PATH)
+        time.sleep(1.5)
+
+        for win in gw.getWindowsWithTitle("Chrome"):
+            try:
+                win.activate()
+                if not win.isMaximized:
+                    win.maximize()
+                return True
+            except:
+                pass
+    except:
+        pass
 
     return False
 
@@ -209,23 +265,41 @@ def chrome_is_active():
         return False
 
 def switch_to_youtube_tab():
-    """
-    Uses AutoHotkey to switch to an existing YouTube tab.
-    Returns True if successful, False otherwise.
-    """
+    # 1️⃣ Check if Chrome exists
+    chrome_windows = gw.getWindowsWithTitle("Chrome")
+    if not chrome_windows:
+        return False  # ExitApp, 1
 
-    ahk_path = r"C:\Program Files\AutoHotkey\AutoHotkey.exe"
-    ahk_script = os.path.join(os.getcwd(), "switch_to_youtube_tab.ahk")
-
+    # 2️⃣ Activate Chrome
     try:
-        result = subprocess.run(
-            [ahk_path, ahk_script],
-            timeout=12
-        )
-        return result.returncode == 0
-    except Exception as e:
-        print("AHK tab switch failed:", e)
+        chrome = chrome_windows[0]
+        if chrome.isMinimized:
+            chrome.restore()
+        chrome.activate()
+    except:
         return False
+
+    time.sleep(0.3)
+
+    # 3️⃣ Ctrl + Shift + A
+    pyautogui.hotkey("ctrl", "shift", "a")
+    time.sleep(0.4)
+
+    # 4️⃣ Type "youtube"
+    pyautogui.typewrite("www.youtube.com", interval=0.02)
+    time.sleep(0.4)
+
+    # 5️⃣ Press Enter
+    pyautogui.press("enter")
+    time.sleep(0.6)
+
+    # 6️⃣ Check active window title
+    active = gw.getActiveWindow()
+    if active and "youtube" in active.title.lower():
+        return True   # ExitApp, 0
+    else:
+        return False  # ExitApp, 1
+
 
 def play_song_in_same_tab(song):
     url = f"https://www.youtube.com/results?search_query={song.replace(' ', '+')}"
@@ -284,3 +358,78 @@ def play_song_in_same_tab(song):
     x = int(screen_w * 0.35)   # left-shifted
     y = int(screen_h * 0.45)
     pyautogui.click(x, y)
+
+
+def wait_for_video_visible(timeout=120):
+    start = time.time()
+    while time.time() - start < timeout:
+        loc = pyautogui.locateOnScreen(
+            "yt_thumb.png",
+            confidence=0.7
+        )
+        if loc:
+            return True
+        time.sleep(0.5)
+    return False
+
+
+# def play_song_in_same_tab(song):
+#     url = f"https://www.youtube.com/results?search_query={song.replace(' ', '+')}"
+
+#     # STEP 1 — Ensure Chrome exists
+#     if not activate_chrome():
+#         webbrowser.open("https://www.youtube.com")
+#         time.sleep(4)
+#         activate_chrome()
+
+#     time.sleep(0.4)
+
+#     # STEP 2 — Try switching to existing YouTube tab
+#     youtube_found = switch_to_youtube_tab()
+#     time.sleep(0.4)
+
+#     # STEP 3 — If NO YouTube tab → open NEW tab AND load YouTube
+#     if not youtube_found:
+#         pyautogui.hotkey("ctrl", "t")
+#         time.sleep(0.3)
+#         # pyautogui.typewrite("https://www.youtube.com", interval=0.02)
+#         pyautogui.press("enter")
+
+#         # wait for YouTube to actually load
+#         start = time.time()
+#         while time.time() - start < 10:
+#             try:
+#                 active = gw.getActiveWindow()
+#                 if active and "youtube" in active.title.lower():
+#                     break
+#             except:
+#                 pass
+#             time.sleep(0.4)
+
+#     # STEP 4 — FINAL safety check
+#     try:
+#         active = gw.getActiveWindow()
+#         if not active or "chrome" not in active.title.lower():
+#             webbrowser.open(url)
+#             return
+#     except:
+#         webbrowser.open(url)
+#         return
+
+#     # STEP 5 — Search INSIDE YouTube tab
+#     pyautogui.hotkey("ctrl", "l")
+#     time.sleep(0.2)
+#     pyautogui.typewrite(url, interval=0.02)
+#     pyautogui.press("enter")
+
+#     # STEP 6 — Wait until video visible (NO selenium)
+#     if not wait_for_video_visible():
+#         speak("Song did not load in time.")
+#         return
+
+
+#     # STEP 7 — Click first video
+#     screen_w, screen_h = pyautogui.size()
+#     x = int(screen_w * 0.35)   # left-shifted
+#     y = int(screen_h * 0.45)
+#     pyautogui.click(x, y)

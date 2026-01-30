@@ -3,20 +3,26 @@ import pywhatkit
 import sys
 from datetime import datetime
 import re
-from speech_engine import speak
+from speech_engine import speak, stop_speak, is_speaking    
 from ai_fallback import ai_reply
 import time
 import os
 import pyautogui
-
+from focus_target import (FOCUS_PREFIXES, OPEN_PREFIXES, 
+    focus_window, focus_target, open_target, stop_focus_search)
 
 from basic_controls import (
     TIME_KEYWORDS, OPEN_GOOGLE_KEYWORDS, OPEN_YOUTUBE_KEYWORDS,
-    IN_APP_SEARCH_PREFIX, GOOGLE_SEARCH_PREFIX, SHUTDOWN_KEYWORDS,
-    restore_window_keywords,maximize_window_keywords,CLOSE_TAB_KEYWORDS,
+    focus_search_PREFIX, GOOGLE_SEARCH_PREFIX, SHUTDOWN_KEYWORDS,
+    restore_window_keywords,maximize_window_keywords,CLOSE_TAB_KEYWORDS,press_button_prefix,
+    Typing_prefix, go_forward_keywords, close_active_window_keywords,BRIGHTNESS_UP_KEYWORDS, BRIGHTNESS_DOWN_KEYWORDS,
+    scroll_up_keywords, scroll_down_keywords, left_click_keywords, right_click_keywords,lock_screen_keywords,
+    go_to_desktop_keywords,
 
-    go_back, tell_time, open_google, open_youtube, in_app_search, google_search, shutdown_pc,
-    maximize_window, restore_window, next_tab, previous_tab, close_tab
+    go_back, go_forward, tell_time, open_google, open_youtube, focus_search, google_search, shutdown_pc,
+    maximize_window, restore_window, next_tab, previous_tab, close_tab, press_button,
+    type_basic, close_active_window, brightness_up, brightness_down,
+    scroll_up, scroll_down, left_click, right_click,lock_screen,go_to_desktop
 )
 
 from youtube_controls import (
@@ -30,10 +36,13 @@ from youtube_controls import (
 )
 
 from chrome_controls import (
-    VOLUME_UP_KEYWORDS, VOLUME_DOWN_KEYWORDS,
+    VOLUME_UP_KEYWORDS, VOLUME_DOWN_KEYWORDS, open_new_tab_keywords, search_in_browser_prefix,
+    activate_chrome_keywords,
 
     volume_up, volume_down,
     activate_chrome_cmd,
+    open_new_tab,
+    search_in_browser
 )
 
 
@@ -66,7 +75,15 @@ def respond(command):
     if command in TIME_KEYWORDS:
         tell_time(speak)
 
-    # Open Google
+    elif command in ["stop", "quiet", "shut up", "chup", "bas"]:
+        stop_speak()
+        stop_focus_search()  # Also stop any ongoing focus/open search
+        return
+
+    # Go to Desktop (minimize all windows)
+    elif command in go_to_desktop_keywords:
+        go_to_desktop()
+
     elif command in OPEN_GOOGLE_KEYWORDS:
         open_google(speak)
 
@@ -75,8 +92,8 @@ def respond(command):
         open_youtube(speak)
 
     # uses Ctrl+F (works in WhatsApp Desktop, browsers, VS Code, etc.)
-    elif any(command.startswith(p) for p in IN_APP_SEARCH_PREFIX):
-        in_app_search(command, speak)
+    elif any(command.startswith(p) for p in focus_search_PREFIX):
+        focus_search(command, speak)
 
     # Google Search
     elif any(command.startswith(p) for p in GOOGLE_SEARCH_PREFIX):
@@ -86,6 +103,11 @@ def respond(command):
     elif command in ["go back", "previous page"]:
         speak("Going back")
         go_back()
+
+    # Go forward
+    elif command in go_forward_keywords :
+        speak("Going forward")
+        go_forward()
 
     # Fullscreen
     elif command in maximize_window_keywords :
@@ -101,14 +123,67 @@ def respond(command):
     elif command in SHUTDOWN_KEYWORDS:
         shutdown_pc(speak)
 
+    # ---------- PRESS BUTTON ----------
+    elif any(command.startswith(p) for p in press_button_prefix):
+        button = command
+        for p in press_button_prefix:
+            button = button.replace(p, "").strip()
+        if button:
+            press_button(button)
+        else:
+            speak("Please specify a button to press.")
+
+    # ---------- TYPE BASIC ----------
+    elif any(command.startswith(p) for p in Typing_prefix):
+        message = command
+        for p in Typing_prefix:
+            message = message.replace(p, "").strip()
+        if message:
+            type_basic(message)
+        else:
+            speak("Please specify a message to type.")
+
+    # Close active window
+    elif command in close_active_window_keywords:
+        speak("Closing the active window")
+        close_active_window()
+
+    # ---------- STARTS WITH "BRIGHTNESS" ----------
+    elif (any(command.startswith(k) for k in BRIGHTNESS_UP_KEYWORDS)):
+        match = re.search(r"by (\d+)", command)
+        step = int(match.group(1)) if match else 10
+        brightness_up(step)
+
+    elif any(command.startswith(k) for k in BRIGHTNESS_DOWN_KEYWORDS):
+        match = re.search(r"by (\d+)", command)
+        step = int(match.group(1)) if match else 10
+        brightness_down(step)
+
+    # ---------- SCROLLING ----------
+    elif command in scroll_up_keywords:
+        scroll_up()
+     
+    elif command in scroll_down_keywords:
+        scroll_down()
+
+    elif command in left_click_keywords:    
+        left_click()
+    
+    elif command in right_click_keywords:
+        right_click()
+
+    elif command in lock_screen_keywords:
+        speak("Locking the screen")
+        lock_screen()
+        
     # ============================
     #    YOUTUBE CONTROLS
     # ============================
-
-    # Play song (on YouTube)
-    elif command.startswith(f"{PLAY_SONG_PREFIX} "):
-        play_song_command(command, speak, play_song_in_same_tab)
     
+    elif command.startswith(f"{PLAY_SONG_PREFIX} "):
+        song = command.replace(f"{PLAY_SONG_PREFIX} ", "", 1).strip()
+        play_song_in_same_tab(song)
+
     # Pause / Stop
     elif command in PAUSE_KEYWORDS:
         speak("Pausing the video")
@@ -144,20 +219,40 @@ def respond(command):
         speak("Goodbye!")
         sys.exit()
 
-        
     # ============================
     #    CHROME COMMANDS
     # ============================
 
-    # Volume Up
-    elif command in VOLUME_UP_KEYWORDS :
-        speak("Turning volume up")
-        volume_up()
+    # ---------- STARTS WITH "VOLUME" ----------
+    elif command.startswith("volume"):
 
-    # Volume Down
-    elif command in VOLUME_DOWN_KEYWORDS :
-        speak("Turning volume down")
-        volume_down()
+        # volume up
+        if "up" in command:
+            match = re.search(r"by (\d+)", command)
+            if match:
+                volume_up(int(match.group(1)))
+            else:
+                volume_up(command.count("up") or 1)
+
+        # volume down
+        elif "down" in command:
+            match = re.search(r"by (\d+)", command)
+            if match:
+                volume_down(int(match.group(1)))
+            else:
+                volume_down(command.count("down") or 1)
+
+
+    # ---------- DOES NOT START WITH "VOLUME" ----------
+    # volume up keywords
+    elif any(command.startswith(k) for k in VOLUME_UP_KEYWORDS):
+        match = re.search(r"by (\d+)", command)
+        volume_up(int(match.group(1)) if match else 1)
+
+    # volume down keywords
+    elif any(command.startswith(k) for k in VOLUME_DOWN_KEYWORDS):
+        match = re.search(r"by (\d+)", command)
+        volume_down(int(match.group(1)) if match else 1)
 
     # Close current tab
     elif command in CLOSE_TAB_KEYWORDS:
@@ -190,17 +285,17 @@ def respond(command):
             speak("Chrome is not active")
 
     # Activate Chrome
-    elif any(phrase in command for phrase in [
-        "activate chrome",
-        "open chrome",
-        "bring chrome",
-        "switch to chrome",
-        "focus chrome"
-    ]):
+    elif command in activate_chrome_keywords:
         if activate_chrome():
             speak("Chrome activated")
         else:
             speak("Chrome is not running")
+
+    elif command in open_new_tab_keywords:
+        open_new_tab()
+
+    elif any(command.startswith(p) for p in search_in_browser_prefix):
+        search_in_browser(command)
 
     # ============================
     #    WHATSAPP DESKTOP COMMANDS
@@ -215,13 +310,6 @@ def respond(command):
         name = command.replace("search whatsapp", "").strip()
         speak(f"Searching {name} on WhatsApp")
         search_contact(name)
-
-    # search for already in basic commands
-    elif command == "go down" or command == "scroll down" or command == "godown" or command == "neeche ja" or command == "neecheja":
-        pyautogui.press("down")
-
-    elif command == "go up" or command == "uparja" or command == "upar ja" or command == "up":
-        pyautogui.press("up")
 
     elif command == "select contact" or command == "open chat" or command == "go to chat" or command == "open":
         pyautogui.press("enter")
@@ -238,7 +326,7 @@ def respond(command):
             speak("Typing")
             type_message_whatsapp(message)
 
-    elif command in ["clear message", "delete message", "remove message"]:
+    elif command in ["clear message", "delete message", "remove message", "clear all", "clear the message"]:
         speak("Clearing message")
         clear_message_whatsapp()
 
@@ -255,11 +343,36 @@ def respond(command):
         pyautogui.press("enter")
 
     elif command in Close_WHATSAPP_KEYWORDS:
-        speak("Closing WhatsApp")
-        if close_whatsapp():
-            speak("WhatsApp closed")
-        else:
+        if not close_whatsapp():
             speak("WhatsApp is not running")
+
+    # ---------- FOCUS TARGET (scan desktop/zones with TAB + arrow keys) ----------
+    elif any(command.startswith(p) for p in FOCUS_PREFIXES):
+        target = command
+        for p in FOCUS_PREFIXES:
+            if target.startswith(p):
+                target = target.replace(p, "", 1).strip()
+                break
+
+        if target:
+            speak(f"Focusing {target}")
+            if not focus_target(target):
+                speak(f"{target} not found")
+        return
+
+    # ---------- OPEN TARGET (find and open file/app) ----------
+    elif any(command.startswith(p) for p in OPEN_PREFIXES):
+        target = command
+        for p in OPEN_PREFIXES:
+            if target.startswith(p):
+                target = target.replace(p, "", 1).strip()
+                break
+
+        if target:
+            speak(f"Focusing {target}")
+            if not open_target(target):
+                speak(f"{target} not found")
+        return
 
 
     # ============================

@@ -47,36 +47,26 @@ Close_WHATSAPP_KEYWORDS = [
     "close whatsapp", "exit whatsapp", "quit whatsapp", "shutdown whatsapp", "whatsapp band kr", "whatsapp band kar de"]
 
 def activate_whatsapp_desktop():
-    # 1️⃣ If already open → activate
+    # 1️⃣ If WhatsApp Desktop already open → activate ONLY exact title
     for win in gw.getWindowsWithTitle("WhatsApp"):
-        try:
-            if win.isMinimized:
-                win.restore()
-            win.activate()
-            time.sleep(0.4)
-            return True
-        except:
-            pass
+        if win.title.strip() == "WhatsApp":   # 🔥 EXACT MATCH
+            try:
+                if win.isMinimized:
+                    win.restore()
+                win.activate()
+                time.sleep(0.4)
+                return True
+            except:
+                pass
 
-    # 2️⃣ Open Windows search
+    # 2️⃣ Open Windows search (only if exact window not found)
     pyautogui.hotkey("win")
     time.sleep(0.6)
 
-    # 3️⃣ Type WhatsApp and launch 
+    # 3️⃣ Type WhatsApp and launch
     pyautogui.typewrite("whatsapp", interval=0.05)
     time.sleep(0.8)
     pyautogui.press("enter")
-
-    # 4️⃣ Wait and activate
-    time.sleep(4)
-    for win in gw.getWindowsWithTitle("WhatsApp"):
-        try:
-            win.activate()
-            return True
-        except:
-            pass
-
-    return False    
 
 def search_contact(name):
     
@@ -128,7 +118,6 @@ def clear_message_whatsapp():
     pyautogui.press("backspace")
 
 def send_message(message):
-    time.sleep(0.5)
     pyautogui.typewrite(message, interval=0.03)
     pyautogui.press("enter")
 
@@ -173,7 +162,6 @@ def next_chat():
     pyautogui.hotkey("down")
     time.sleep(0.3)
     pyautogui.press("enter")
-
 
 def close_whatsapp():
     for proc in psutil.process_iter(['name']):

@@ -29,9 +29,9 @@ import queue
 recognizer = sr.Recognizer()
 
 # 2️⃣ THEN set tuning parameters
-recognizer.pause_threshold = 0.8
+recognizer.pause_threshold = 1.0
 recognizer.phrase_threshold = 0.3
-recognizer.non_speaking_duration = 0.5
+recognizer.non_speaking_duration = 0.6
 
 # 3️⃣ Mic + queue
 mic = sr.Microphone()
