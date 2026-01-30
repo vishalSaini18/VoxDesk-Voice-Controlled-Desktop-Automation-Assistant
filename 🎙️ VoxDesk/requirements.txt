@@ -1,0 +1,7 @@
+pydantic
+langchain
+langchain-openai
+pywhatkit
+pyautogui # For GUI automation tasks
+pygetwindow
+pywinauto
